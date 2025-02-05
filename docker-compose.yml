@@ -7,8 +7,9 @@ services:
       dockerfile: Dockerfile.ui_service
       args:
         UI_ENABLED: 1
-    ports:
-      - "${MF_UI_METADATA_PORT:-8083}:${MF_UI_METADATA_PORT:-8083}"
+    # uncomment out if you want to access directly
+    # ports:
+      # - "${MF_UI_METADATA_PORT:-8083}:${MF_UI_METADATA_PORT:-8083}"
     volumes:
       - ./services:/root/services
       - ./mock-aws-creds:/root/.aws
@@ -96,8 +97,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.metadata_service
-    ports:
-      - "${MF_METADATA_PORT:-8080}:${MF_METADATA_PORT:-8080}"
+    # uncomment out if you want to access directly
+    # ports:
+      # - "${MF_METADATA_PORT:-8080}:${MF_METADATA_PORT:-8080}"
     volumes:
       - ./services:/root/services
     environment:
