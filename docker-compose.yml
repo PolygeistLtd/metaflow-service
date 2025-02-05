@@ -69,7 +69,6 @@ services:
       - retainFilesOnExit=true
       - root=containers3root
       - initialBuckets=metaflow_data
-      - retainFilesOnExit=true
     ports:
       - 9090:9090
       - 9191:9191
