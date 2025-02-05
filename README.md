@@ -7,7 +7,7 @@ This is an implementation of Metaflow that runs entirely on a local machine, wit
 - Docker and docker compose
 - An internet connection to pull down containers and UI code
 - git for building the UI code
-- localhost ports 80 and 9090 to be open
+- make sure localhost ports 80,8080, 8083, and 9090 are not used by something else
 
 ## Installation
 
