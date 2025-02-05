@@ -1,30 +1,140 @@
 version: "3"
 services:
-  metadata:
-    image: "metadata_service:latest"
-    restart: always
-    container_name: "metadata_service"
+  ui_backend:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.ui_service
+      args:
+        UI_ENABLED: 1
     ports:
-      - "${MF_MIGRATION_PORT:-8082}:${MF_MIGRATION_PORT:-8082}"
-      - "${MF_METADATA_PORT:-8080}:${MF_METADATA_PORT:-8080}"
+      - "${MF_UI_METADATA_PORT:-8083}:${MF_UI_METADATA_PORT:-8083}"
     volumes:
-      - .:/code
+      - ./services:/root/services
+      - ./mock-aws-creds:/root/.aws
+    # Add container capability for benchmarking processes. required for py-spy
+    cap_add:
+      - SYS_PTRACE
     environment:
       - MF_METADATA_DB_HOST=db
       - MF_METADATA_DB_PORT=5432
       - MF_METADATA_DB_USER=postgres
       - MF_METADATA_DB_PSWD=postgres
       - MF_METADATA_DB_NAME=postgres
-      - MF_MIGRATION_ENDPOINTS_ENABLED=1
+      - MF_UI_METADATA_PORT=${MF_UI_METADATA_PORT:-8083}
+      - MF_UI_METADATA_HOST=${MF_UI_METADATA_HOST:-0.0.0.0}
+      - MF_BASEURL=http://localhost:80/api/
+      - MF_METADATA_DB_POOL_MIN=1
+      - MF_METADATA_DB_POOL_MAX=10
+      - METAFLOW_S3_RETRY_COUNT=0
+      - METAFLOW_S3_ENDPOINT_URL=http://s3mock:9090
+      - LOGLEVEL=INFO
+      - AIOPG_ECHO=0
+      - UI_ENABLED=0
+      - PREFETCH_RUNS_SINCE=2592000 # 30 days in seconds
+      - PREFETCH_RUNS_LIMIT=1 # Prefetch only one run
+      - S3_NUM_WORKERS=2
+      - CACHE_ARTIFACT_MAX_ACTIONS=10
+      - CACHE_DAG_MAX_ACTIONS=10
+      - CACHE_LOG_MAX_ACTIONS=10
+      - CACHE_ARTIFACT_STORAGE_LIMIT=16000000
+      - CACHE_DAG_STORAGE_LIMIT=16000000
+      - WS_POSTPROCESS_CONCURRENCY_LIMIT=8
+      - FEATURE_PREFETCH_DISABLE=0
+      - FEATURE_CACHE_DISABLE=0
+      - FEATURE_S3_DISABLE=0
+      - FEATURE_REFINE_DISABLE=0
+      - FEATURE_WS_DISABLE=0
+      - FEATURE_HEARTBEAT_DISABLE=0
+      - FEATURE_DB_LISTEN_DISABLE=0
+      - FEATURE_ARTIFACT_SEARCH=1
+      - FEATURE_FOREACH_VAR_SEARCH=1
+      - FEATURE_ARTIFACT_TABLE=1
+      - CUSTOM_QUICKLINKS=$CUSTOM_QUICKLINKS
+      - NOTIFICATIONS=$NOTIFICATIONS
+      - GA_TRACKING_ID=none
+      - PLUGINS=$PLUGINS
+      - AWS_PROFILE=$AWS_PROFILE
+      - ORIGIN_TO_ALLOW_CORS_FROM=*
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      - migration
+      - s3mock
+  s3mock:
+    image: adobe/s3mock:latest
+    environment:
+      - debug=true
+      - retainFilesOnExit=true
+      - root=containers3root
+      - initialBuckets=metaflow_data
+      - retainFilesOnExit=true
+    ports:
+      - 9090:9090
+      - 9191:9191
+    volumes:
+      - ./locals3root:/containers3root
+  nginx:
+    hostname: 'nginx'
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - ui
+      - ui_backend
+  ui:
+    # TODO: put a build command here
+    image: metaflow-ui:latest
+    ports:
+      - 3000:3000
+    environment:
+      - METAFLOW_SERVICE_URL=http://localhost:80/meta
+  metadata:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.metadata_service
+    ports:
+      - "${MF_METADATA_PORT:-8080}:${MF_METADATA_PORT:-8080}"
+    volumes:
+      - ./services:/root/services
+    environment:
+      - LOGLEVEL=WARNING
+      - MF_METADATA_DB_HOST=db
+      - MF_METADATA_DB_PORT=5432
+      - MF_METADATA_DB_USER=postgres
+      - MF_METADATA_DB_PSWD=postgres
+      - MF_METADATA_DB_NAME=postgres
       - MF_METADATA_PORT=${MF_METADATA_PORT:-8080}
       - MF_METADATA_HOST=${MF_METADATA_HOST:-0.0.0.0}
       - MF_MIGRATION_PORT=${MF_MIGRATION_PORT:-8082}
-    links:
+    depends_on:
+      - migration
+  migration:
+    command: ["python", "/root/run_goose.py"]
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.migration_service
+    volumes:
+      - ./services:/root/services
+    environment:
+      - MF_METADATA_DB_HOST=db
+      - MF_METADATA_DB_PORT=5432
+      - MF_METADATA_DB_USER=postgres
+      - MF_METADATA_DB_PSWD=postgres
+      - MF_METADATA_DB_NAME=postgres
+      - MF_METADATA_PORT=${MF_METADATA_PORT:-8080}
+      - MF_METADATA_HOST=${MF_METADATA_HOST:-0.0.0.0}
+      - MF_MIGRATION_ENDPOINTS_ENABLED=1
+      - MF_MIGRATION_PORT=${MF_MIGRATION_PORT:-8082}
+    depends_on:
       - db
   db:
     image: "postgres:11"
-    restart: always
-    container_name: "my_postgres"
+    command: ["postgres", "-c", "log_statement=none", "-c", "wal_level=logical"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -32,6 +142,11 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - my_dbdata:/var/lib/postgresql/data2
+      - db_dev_data:/var/lib/postgresql/data2
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 volumes:
-  my_dbdata:
+  db_dev_data:

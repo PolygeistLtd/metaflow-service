@@ -31,3 +31,6 @@ __pycache__/
 
 # jetbrains
 .idea
+
+# local s3
+locals3root
