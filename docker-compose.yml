@@ -7,9 +7,8 @@ services:
       dockerfile: Dockerfile.ui_service
       args:
         UI_ENABLED: 1
-    # uncomment out if you want to access directly
-    # ports:
-      # - "${MF_UI_METADATA_PORT:-8083}:${MF_UI_METADATA_PORT:-8083}"
+    ports:
+      - "${MF_UI_METADATA_PORT:-8083}:${MF_UI_METADATA_PORT:-8083}"
     volumes:
       - ./services:/root/services
       - ./mock-aws-creds:/root/.aws
@@ -55,13 +54,14 @@ services:
       - NOTIFICATIONS=$NOTIFICATIONS
       - GA_TRACKING_ID=none
       - PLUGINS=$PLUGINS
-      - AWS_PROFILE=$AWS_PROFILE
+      - AWS_PROFILE=default
       - ORIGIN_TO_ALLOW_CORS_FROM=*
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
     depends_on:
       - migration
       - s3mock
+      - db
   s3mock:
     image: adobe/s3mock:latest
     environment:
@@ -85,7 +85,6 @@ services:
       - ui
       - ui_backend
   ui:
-    # TODO: put a build command here
     image: metaflow-ui:latest
     ports:
       - 3000:3000
@@ -96,9 +95,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.metadata_service
-    # uncomment out if you want to access directly
-    # ports:
-      # - "${MF_METADATA_PORT:-8080}:${MF_METADATA_PORT:-8080}"
+    ports:
+      - "${MF_METADATA_PORT:-8080}:${MF_METADATA_PORT:-8080}"
     volumes:
       - ./services:/root/services
     environment:
