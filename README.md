@@ -57,7 +57,7 @@ To use the local Metaflow setup for flows put the following configuration in `~/
 }
 ```
 
-## Thanks to watch out for
+## Things to watch out for
 
 - This system proxies everything through nginx. There are commented out port assignments if you want to interface with containers directly
-- The flow metadata is stored in a Postgres instance backed by a volume. this volume is deleted once the system is taken down. If you would like to persist flow metadata, use a more permanent volume or folder.
+- The flow metadata is stored in a Postgres instance backed by a volume. This volume is deleted once the system is taken down. If you would like to persist flow metadata, use a more permanent volume or folder.
